@@ -14,6 +14,8 @@
     --ink:#22271F;
     --amber:#B97E1E;
     --amber-bg:#FBF3E2;
+    --yellow:#E0A800;
+    --yellow-bg:#FFF4D2;
     --red:#A8332A;
     --red-bg:#F9E9E7;
     --ok:#2F7D4F;
@@ -29,7 +31,6 @@
     font-size:16px;line-height:1.45;
     -webkit-font-smoothing:antialiased;
   }
-  /* Tartan-Streifen als Erkennungszeichen */
   .tartan{
     height:10px;
     background:
@@ -83,10 +84,13 @@
     background:#fff;border:1px solid var(--line);border-radius:12px;
     padding:12px;margin-bottom:12px;display:flex;gap:12px;
     border-left:5px solid var(--line);
+    transition:background .25s,border-color .25s;
   }
+  .item.active{border-left-color:var(--yellow);background:var(--yellow-bg);border-color:var(--yellow)}
   .item.ok{border-left-color:var(--ok);background:var(--ok-bg)}
   .item.missing{border-left-color:var(--amber);background:var(--amber-bg)}
   .item.make{border-left-color:var(--navy);background:var(--navy-bg)}
+  .item.wrongflash{border-left-color:var(--red) !important;background:var(--red-bg) !important;border-color:var(--red) !important}
   .item img,.item .imgph{
     width:64px;height:64px;border-radius:8px;object-fit:cover;flex-shrink:0;
     background:var(--line);display:flex;align-items:center;justify-content:center;
@@ -98,6 +102,7 @@
   .item .qty{margin-top:8px;font-size:15px}
   .item .qty b{font-size:18px}
   .item .status-label{font-size:13px;font-weight:700;margin-top:6px}
+  .item.active .status-label{color:#8A6800}
   .item.ok .status-label{color:var(--ok)}
   .item.missing .status-label{color:var(--amber)}
   .item.make .status-label{color:var(--navy)}
@@ -134,6 +139,7 @@
   #camOverlay.show{display:flex}
   #camReader{width:100%;max-width:420px;border-radius:12px;overflow:hidden}
   #camOverlay .hint{color:#fff;margin:14px 0;font-size:14px;text-align:center;opacity:.85}
+  #camOverlay .target{color:#FFD966;font-weight:700}
   #camOverlay button{
     background:#fff;color:var(--ink);border:none;border-radius:10px;
     padding:12px 22px;font-size:15px;font-weight:700;
@@ -161,11 +167,20 @@
   .confirm-sheet{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px}
   .confirm-sheet h3{font-size:18px;color:var(--green);margin-bottom:2px}
   .confirm-sheet .meta{font-size:13px;color:#666;margin-bottom:14px}
-  .confirm-sheet h4{font-size:13px;text-transform:uppercase;letter-spacing:.06em;margin:16px 0 6px}
-  .confirm-sheet h4.ok{color:var(--ok)} .confirm-sheet h4.miss{color:var(--amber)} .confirm-sheet h4.make{color:var(--navy)}
-  .confirm-sheet ul{list-style:none}
-  .confirm-sheet li{padding:7px 0;border-bottom:1px dashed var(--line);font-size:15px;display:flex;justify-content:space-between;gap:10px}
-  .confirm-sheet li .c{font-family:ui-monospace,Menlo,monospace;font-size:13px;color:#666}
+  .qtytable{width:100%;border-collapse:collapse;margin-top:10px}
+  .qtytable th{
+    font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#777;
+    text-align:left;padding:6px 6px;border-bottom:2px solid var(--line);
+  }
+  .qtytable th.n,.qtytable td.n{text-align:center;width:70px}
+  .qtytable td{padding:8px 6px;border-bottom:1px dashed var(--line);font-size:14px;vertical-align:top}
+  .qtytable td .cd{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#666}
+  .qtytable td.n{font-size:16px;font-weight:600;text-align:center}
+  .qtytable tr.r-ok td.st{color:var(--ok)}
+  .qtytable tr.r-missing td.st{color:var(--amber)}
+  .qtytable tr.r-make td.st{color:var(--navy)}
+  .qtytable td.st{font-weight:700;font-size:13px;white-space:nowrap}
+  .qtytable td.n.diff{color:var(--red);font-weight:800}
   .statusline{margin-top:16px;padding:12px;border-radius:10px;font-weight:700;text-align:center;font-size:16px}
   .statusline.full{background:var(--ok-bg);color:var(--ok)}
   .statusline.part{background:var(--amber-bg);color:var(--amber)}
@@ -184,7 +199,7 @@
 <header>
   <div>
     <h1>Kilts &amp; More · Kommissionierung</h1>
-    <div class="sub">Prototyp · Phase 1 (Demodaten)</div>
+    <div class="sub">Prototyp · Phase 1.1 (Demodaten)</div>
   </div>
   <button onclick="goHome()" class="no-print">Aufträge</button>
 </header>
@@ -199,14 +214,19 @@
 
 <div id="camOverlay">
   <div id="camReader"></div>
-  <div class="hint">Barcode auf dem Regal-Etikett in den Rahmen halten.<br>Kamera funktioniert nur über HTTPS.</div>
+  <div class="hint">Aktive Position: <span class="target" id="camTarget">–</span><br>Barcode auf dem Regal-Etikett in den Rahmen halten.</div>
   <button onclick="closeCam()">Schließen</button>
 </div>
 
 <div id="toast"></div>
 
 <script>
-/* DEMO-AUFTRÄGE - HIER ANPASSEN */
+/* =============================================================
+   DEMO-AUFTRÄGE  –  HIER ANPASSEN
+   Trage echte Artikelnummern von euren Regal-Etiketten ein,
+   damit der Scan-Test gegen die echten Regale funktioniert.
+   img: kann eine Bild-URL sein oder leer bleiben ("").
+   ============================================================= */
 const DEMO_ORDERS = [
   {
     id: "10234",
@@ -230,9 +250,11 @@ const DEMO_ORDERS = [
     ]
   }
 ];
-/* =========================== */
+/* ============================================================= */
 
-let state = {};
+// Status je Position: pending | ok | missing | make
+// "missing" mit scanned>0 = Teilmenge bestätigt, Rest nicht lieferbar
+let state = {};          // orderId -> { items:[{scanned,status}], picker, finishedAt, active }
 let currentOrder = null;
 let html5Qr = null;
 
@@ -240,9 +262,25 @@ function initState(order){
   if(!state[order.id]){
     state[order.id] = {
       items: order.items.map(()=>({scanned:0,status:"pending"})),
-      picker:"", finishedAt:null
+      picker:"", finishedAt:null, active:0
     };
   }
+}
+
+// Aktive Position bestimmen: bleibt wenn noch pending, sonst nächste offene
+function ensureActive(order){
+  const s = state[order.id];
+  if(s.active==null || !s.items[s.active] || s.items[s.active].status!=="pending"){
+    s.active = s.items.findIndex(i=>i.status==="pending");
+  }
+}
+
+function setActive(idx){
+  if(!currentOrder) return;
+  const s = state[currentOrder.id];
+  if(s.items[idx].status!=="pending") return;
+  s.active = idx;
+  render();
 }
 
 function orderStatus(order){
@@ -250,6 +288,16 @@ function orderStatus(order){
   if(!s || !s.finishedAt) return "open";
   return s.items.every(i=>i.status==="ok") ? "done" : "partial";
 }
+
+function confirmedQty(order, idx){
+  const st = state[order.id].items[idx];
+  if(st.status==="ok") return st.scanned || order.items[idx].qty;
+  if(st.status==="missing") return st.scanned;
+  if(st.status==="make") return 0;
+  return st.scanned;
+}
+
+/* ---------- Ansichten ---------- */
 
 function goHome(){ location.hash=""; render(); }
 
@@ -290,6 +338,7 @@ function renderPick(orderId){
   currentOrder = order;
   initState(order);
   const s = state[order.id];
+  ensureActive(order);
   document.getElementById("scanbar").style.display="flex";
 
   const total = order.items.length;
@@ -304,26 +353,34 @@ function renderPick(orderId){
 
   order.items.forEach((it,idx)=>{
     const st = s.items[idx];
-    const cls = st.status==="ok"?"ok":st.status==="missing"?"missing":st.status==="make"?"make":"";
+    const isActive = idx===s.active && st.status==="pending";
+    const cls = st.status==="ok"?"ok":st.status==="missing"?"missing":st.status==="make"?"make":(isActive?"active":"");
     const img = it.img ? `<img src="${it.img}" alt="">` : `<div class="imgph">Bild<br>folgt via API</div>`;
     let statusLabel="", actions="";
     if(st.status==="ok"){
-      statusLabel = `<div class="status-label">✓ Vollständig gescannt</div>`;
-      actions = `<button onclick="resetItem(${idx})">Zurücksetzen</button>`;
+      statusLabel = `<div class="status-label">✓ Komplett · ${st.scanned} von ${it.qty} bestätigt</div>`;
+      actions = `<button onclick="event.stopPropagation();resetItem(${idx})">Zurücksetzen</button>`;
     } else if(st.status==="missing"){
-      statusLabel = `<div class="status-label">✗ Nicht auf Lager – bestellen</div>`;
-      actions = `<button onclick="resetItem(${idx})">Zurücksetzen</button>`;
+      statusLabel = st.scanned>0
+        ? `<div class="status-label">✗ Teilmenge · nur ${st.scanned} von ${it.qty} auf Lager</div>`
+        : `<div class="status-label">✗ Nicht auf Lager – bestellen</div>`;
+      actions = `<button onclick="event.stopPropagation();resetItem(${idx})">Zurücksetzen</button>`;
     } else if(st.status==="make"){
       statusLabel = `<div class="status-label">⚒ Muss angefertigt werden</div>`;
-      actions = `<button onclick="resetItem(${idx})">Zurücksetzen</button>`;
-    } else {
-      actions = `<button class="warn" onclick="markItem(${idx},'missing')">Nicht auf Lager</button>
-                 <button class="navy" onclick="markItem(${idx},'make')">Anfertigung</button>`;
+      actions = `<button onclick="event.stopPropagation();resetItem(${idx})">Zurücksetzen</button>`;
+    } else if(isActive){
+      statusLabel = `<div class="status-label">▶ AKTIVE POSITION – jetzt scannen</div>`;
+      const missLabel = st.scanned>0 ? `Kein weiterer Bestand (${st.scanned} bestätigen)` : `Nicht auf Lager`;
+      actions = `<button class="warn" onclick="event.stopPropagation();markItem(${idx},'missing')">${missLabel}</button>
+                 <button class="navy" onclick="event.stopPropagation();markItem(${idx},'make')">Anfertigung</button>`;
       if(st.scanned>0 && st.scanned<it.qty){
-        actions += `<button onclick="fillQty(${idx})">Menge komplett (${it.qty})</button>`;
+        actions += `<button onclick="event.stopPropagation();fillQty(${idx})">Menge komplett (${it.qty})</button>`;
       }
+    } else {
+      statusLabel = `<div class="status-label" style="color:#999">Antippen zum Aktivieren</div>`;
+      actions = "";
     }
-    html += `<div class="item ${cls}" id="item-${idx}">
+    html += `<div class="item ${cls}" id="item-${idx}" onclick="setActive(${idx})">
       ${img}
       <div class="body">
         <div class="name">${it.name}</div>
@@ -340,41 +397,54 @@ function renderPick(orderId){
     Kommissionierung abschließen</button>`;
   if(!allDone){
     html += `<p style="font-size:13px;color:#888;margin-top:8px;text-align:center">
-      Jede Position muss gescannt oder als „Nicht auf Lager" / „Anfertigung" bestätigt sein.</p>`;
+      Jede Position muss komplett gescannt oder als Teilmenge / „Nicht auf Lager" / „Anfertigung" bestätigt sein.</p>`;
   }
   document.getElementById("app").innerHTML = html;
-  document.getElementById("scanInput").focus();
+  const inp = document.getElementById("scanInput");
+  if(inp) inp.focus();
 }
 
 function renderConfirm(orderId){
   const order = DEMO_ORDERS.find(o=>o.id===orderId);
   if(!order){ goHome(); return; }
+  initState(order);
   const s = state[order.id];
   document.getElementById("scanbar").style.display="none";
   if(!s.finishedAt) s.finishedAt = new Date().toLocaleString("de-DE");
 
-  const okItems=[],missItems=[],makeItems=[];
+  let rows = "";
+  let anyShort = false;
   order.items.forEach((it,idx)=>{
-    const st=s.items[idx];
-    if(st.status==="ok") okItems.push(it);
-    else if(st.status==="missing") missItems.push(it);
-    else if(st.status==="make") makeItems.push(it);
+    const st = s.items[idx];
+    const conf = confirmedQty(order, idx);
+    const short = conf < it.qty;
+    if(short) anyShort = true;
+    const stTxt = st.status==="ok" ? "✓ komplett"
+                : st.status==="make" ? "⚒ Anfertigung"
+                : st.scanned>0 ? "✗ Teilmenge" : "✗ kein Bestand";
+    rows += `<tr class="r-${st.status}">
+      <td>${it.name}<br><span class="cd">${it.code}</span></td>
+      <td class="n">${it.qty}</td>
+      <td class="n ${short?"diff":""}">${conf}</td>
+      <td class="st">${stTxt}</td>
+    </tr>`;
   });
-  const complete = missItems.length===0 && makeItems.length===0;
-  const li = it=>`<li><span>${it.name} · ${it.qty} Stk.</span><span class="c">${it.code}</span></li>`;
+
+  const complete = !anyShort;
+  const shortCount = order.items.filter((it,idx)=>confirmedQty(order,idx)<it.qty).length;
 
   let html = `<div class="confirm-sheet">
     <h3>Pick-Bestätigung · Bestellung ${order.id}</h3>
     <div class="meta">${order.customer} · abgeschlossen: ${s.finishedAt}
-      ${s.picker?` · Picker: ${s.picker}`:""}</div>`;
-
-  if(okItems.length) html += `<h4 class="ok">✓ Kommissioniert (gescannt)</h4><ul>${okItems.map(li).join("")}</ul>`;
-  if(missItems.length) html += `<h4 class="miss">✗ Nicht auf Lager – bestellen</h4><ul>${missItems.map(li).join("")}</ul>`;
-  if(makeItems.length) html += `<h4 class="make">⚒ Anfertigung erforderlich</h4><ul>${makeItems.map(li).join("")}</ul>`;
+      ${s.picker?` · Picker: ${s.picker}`:""}</div>
+    <table class="qtytable">
+      <tr><th>Artikel</th><th class="n">Bestellt</th><th class="n">Bestätigt</th><th>Status</th></tr>
+      ${rows}
+    </table>`;
 
   html += complete
     ? `<div class="statusline full">KOMPLETT – Auftrag vollständig kommissioniert</div>`
-    : `<div class="statusline part">TEILLIEFERUNG – ${missItems.length+makeItems.length} Position(en) fehlen</div>`;
+    : `<div class="statusline part">TEILLIEFERUNG – ${shortCount} Position(en) nicht voll bestätigt</div>`;
 
   html += `<div class="no-print">
       <input class="picker-input" placeholder="Name des Pickers (optional)"
@@ -387,29 +457,52 @@ function renderConfirm(orderId){
   document.getElementById("app").innerHTML = html;
 }
 
+/* ---------- Scan-Logik: zählt NUR für die aktive Position ---------- */
+
 function handleScan(code){
   if(!currentOrder) return;
   code = code.trim();
   if(!code) return;
   const order = currentOrder;
   const s = state[order.id];
-  const idx = order.items.findIndex((it,i)=>
-    it.code.toLowerCase()===code.toLowerCase() && s.items[i].status==="pending");
-  if(idx===-1){
-    const anyMatch = order.items.some(it=>it.code.toLowerCase()===code.toLowerCase());
-    toast(anyMatch ? "Position bereits erledigt." : "⚠ Falscher Artikel! "+code+" gehört nicht zu diesem Auftrag.", anyMatch?"":"err");
-    if(navigator.vibrate) navigator.vibrate([80,60,80]);
+  ensureActive(order);
+
+  if(s.active===-1 || s.active==null){
+    toast("Alle Positionen sind bereits erledigt.");
     return;
   }
-  s.items[idx].scanned++;
-  if(navigator.vibrate) navigator.vibrate(40);
-  if(s.items[idx].scanned >= order.items[idx].qty){
-    s.items[idx].status="ok";
-    toast("✓ "+order.items[idx].name+" komplett","ok");
+  const idx = s.active;
+  const it = order.items[idx];
+  const st = s.items[idx];
+
+  if(it.code.toLowerCase() === code.toLowerCase()){
+    st.scanned++;
+    if(navigator.vibrate) navigator.vibrate(40);
+    if(st.scanned >= it.qty){
+      st.status="ok";
+      toast("✓ "+it.name+" komplett – weiter zur nächsten Position","ok");
+      ensureActive(order); // springt automatisch zur nächsten offenen
+    } else {
+      toast(it.name+": "+st.scanned+" / "+it.qty+" – weiter scannen");
+    }
+    render();
   } else {
-    toast(order.items[idx].name+": "+s.items[idx].scanned+" / "+order.items[idx].qty);
+    // Falscher Code für die aktive Position -> rot aufblinken, nicht zählen
+    const otherIdx = order.items.findIndex(o=>o.code.toLowerCase()===code.toLowerCase());
+    const hint = otherIdx>=0
+      ? " Gehört zu: "+order.items[otherIdx].name+". Position antippen, um dorthin zu wechseln."
+      : " Gehört nicht zu diesem Auftrag.";
+    toast("⚠ Falscher Artikel! Erwartet: "+it.code+"."+hint,"err");
+    if(navigator.vibrate) navigator.vibrate([80,60,80]);
+    flashWrong(idx);
   }
-  render();
+}
+
+function flashWrong(idx){
+  const el = document.getElementById("item-"+idx);
+  if(!el) return;
+  el.classList.add("wrongflash");
+  setTimeout(()=>{ el.classList.remove("wrongflash"); }, 1200);
 }
 
 function manualScan(){
@@ -423,23 +516,38 @@ document.addEventListener("keydown",e=>{
 });
 
 function markItem(idx,status){
-  state[currentOrder.id].items[idx].status=status;
+  const s = state[currentOrder.id];
+  s.items[idx].status=status;
+  ensureActive(currentOrder);
   render();
 }
 function resetItem(idx){
-  const st=state[currentOrder.id].items[idx];
+  const s = state[currentOrder.id];
+  const st=s.items[idx];
   st.status="pending"; st.scanned=0;
+  s.active = idx; // zurückgesetzte Position wird wieder aktiv
   render();
 }
 function fillQty(idx){
   const it=currentOrder.items[idx];
-  const st=state[currentOrder.id].items[idx];
+  const s=state[currentOrder.id];
+  const st=s.items[idx];
   st.scanned=it.qty; st.status="ok";
   toast("✓ "+it.name+" komplett (Menge bestätigt)","ok");
+  ensureActive(currentOrder);
   render();
 }
 
+/* ---------- Kamera ---------- */
+
 function openCam(){
+  // Ziel anzeigen: welche Position ist aktiv?
+  if(currentOrder){
+    const s = state[currentOrder.id];
+    ensureActive(currentOrder);
+    const t = (s.active>=0 && s.active!=null) ? currentOrder.items[s.active].code+" – "+currentOrder.items[s.active].name : "–";
+    document.getElementById("camTarget").textContent = t;
+  }
   document.getElementById("camOverlay").classList.add("show");
   html5Qr = new Html5Qrcode("camReader");
   html5Qr.start(
@@ -457,6 +565,7 @@ function closeCam(){
   if(html5Qr){ html5Qr.stop().catch(()=>{}); html5Qr=null; }
 }
 
+/* ---------- Toast ---------- */
 let toastTimer=null;
 function toast(msg,type){
   const t=document.getElementById("toast");
@@ -464,7 +573,7 @@ function toast(msg,type){
   t.className=type||"";
   t.style.display="block";
   clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>{t.style.display="none"},2600);
+  toastTimer=setTimeout(()=>{t.style.display="none"},3200);
 }
 
 window.addEventListener("hashchange",render);
