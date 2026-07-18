@@ -284,7 +284,7 @@ function setActive(idx){
   const cur = (s.active!=null && s.active>=0) ? s.items[s.active] : null;
   if(cur && cur.status==="pending" && cur.scanned>0){
     const curItem = currentOrder.items[s.active];
-    toast("⚠ Erst Position abschließen: "+curItem.name+" ("+cur.scanned+" / "+curItem.qty+"). Weiter scannen oder „Kein weiterer Bestand" bestätigen.","err");
+    toast("⚠ Erst Position abschließen: "+curItem.name+" ("+cur.scanned+" / "+curItem.qty+"). Weiter scannen oder Teilmenge bestätigen.","err");
     if(navigator.vibrate) navigator.vibrate([80,60,80]);
     flashWrong(idx);
     return;
