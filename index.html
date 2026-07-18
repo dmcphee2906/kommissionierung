@@ -199,7 +199,7 @@
 <header>
   <div>
     <h1>Kilts &amp; More · Kommissionierung</h1>
-    <div class="sub">Prototyp · Phase 1.1 (Demodaten)</div>
+    <div class="sub">Prototyp · Phase 1.2 (Demodaten)</div>
   </div>
   <button onclick="goHome()" class="no-print">Aufträge</button>
 </header>
@@ -279,6 +279,16 @@ function setActive(idx){
   if(!currentOrder) return;
   const s = state[currentOrder.id];
   if(s.items[idx].status!=="pending") return;
+  if(idx===s.active) return;
+  // Angefangene Position sperrt den Wechsel: erst fertig scannen oder bestätigen
+  const cur = (s.active!=null && s.active>=0) ? s.items[s.active] : null;
+  if(cur && cur.status==="pending" && cur.scanned>0){
+    const curItem = currentOrder.items[s.active];
+    toast("⚠ Erst Position abschließen: "+curItem.name+" ("+cur.scanned+" / "+curItem.qty+"). Weiter scannen oder „Kein weiterer Bestand" bestätigen.","err");
+    if(navigator.vibrate) navigator.vibrate([80,60,80]);
+    flashWrong(idx);
+    return;
+  }
   s.active = idx;
   render();
 }
@@ -369,7 +379,9 @@ function renderPick(orderId){
       statusLabel = `<div class="status-label">⚒ Muss angefertigt werden</div>`;
       actions = `<button onclick="event.stopPropagation();resetItem(${idx})">Zurücksetzen</button>`;
     } else if(isActive){
-      statusLabel = `<div class="status-label">▶ AKTIVE POSITION – jetzt scannen</div>`;
+      statusLabel = st.scanned>0
+        ? `<div class="status-label">▶ AKTIVE POSITION – abschließen: weiter scannen oder bestätigen</div>`
+        : `<div class="status-label">▶ AKTIVE POSITION – jetzt scannen</div>`;
       const missLabel = st.scanned>0 ? `Kein weiterer Bestand (${st.scanned} bestätigen)` : `Nicht auf Lager`;
       actions = `<button class="warn" onclick="event.stopPropagation();markItem(${idx},'missing')">${missLabel}</button>
                  <button class="navy" onclick="event.stopPropagation();markItem(${idx},'make')">Anfertigung</button>`;
@@ -490,7 +502,9 @@ function handleScan(code){
     // Falscher Code für die aktive Position -> rot aufblinken, nicht zählen
     const otherIdx = order.items.findIndex(o=>o.code.toLowerCase()===code.toLowerCase());
     const hint = otherIdx>=0
-      ? " Gehört zu: "+order.items[otherIdx].name+". Position antippen, um dorthin zu wechseln."
+      ? (st.scanned>0
+          ? " Gehört zu: "+order.items[otherIdx].name+". Erst diese Position abschließen."
+          : " Gehört zu: "+order.items[otherIdx].name+". Position antippen, um dorthin zu wechseln.")
       : " Gehört nicht zu diesem Auftrag.";
     toast("⚠ Falscher Artikel! Erwartet: "+it.code+"."+hint,"err");
     if(navigator.vibrate) navigator.vibrate([80,60,80]);
