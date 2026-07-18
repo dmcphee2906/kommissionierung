@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Kilts &amp; More – Kommissionierung</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{
+    --green:#1E3A2F;
+    --green-mid:#2E5744;
+    --cream:#F7F5EF;
+    --line:#DDD8CC;
+    --ink:#22271F;
+    --amber:#B97E1E;
+    --amber-bg:#FBF3E2;
+    --red:#A8332A;
+    --red-bg:#F9E9E7;
+    --ok:#2F7D4F;
+    --ok-bg:#E8F3EC;
+    --navy:#26344A;
+    --navy-bg:#EAEEF4;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--cream);color:var(--ink);
+    font-size:16px;line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* Tartan-Streifen als Erkennungszeichen */
+  .tartan{
+    height:10px;
+    background:
+      repeating-linear-gradient(90deg,
+        #1E3A2F 0 26px, #26344A 26px 34px, #1E3A2F 34px 44px,
+        #A8332A 44px 48px, #1E3A2F 48px 74px, #B97E1E 74px 77px, #1E3A2F 77px 96px);
+  }
+  header{
+    background:var(--green);color:#fff;
+    padding:12px 16px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+  }
+  header h1{font-size:17px;font-weight:700;letter-spacing:.02em}
+  header .sub{font-size:12px;opacity:.75;font-weight:400}
+  header button{
+    background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);
+    color:#fff;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:600;
+  }
+  main{max-width:640px;margin:0 auto;padding:16px 14px 90px}
+
+  h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:var(--green-mid);margin:6px 2px 12px}
+
+  /* Auftragsliste */
+  .order-card{
+    background:#fff;border:1px solid var(--line);border-radius:12px;
+    padding:14px;margin-bottom:12px;display:block;width:100%;text-align:left;
+    font-size:16px;box-shadow:0 1px 2px rgba(30,58,47,.06);
+  }
+  .order-card:active{background:#F0EEE6}
+  .order-card .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .order-card .num{font-weight:700;font-size:17px;color:var(--green)}
+  .order-card .cust{color:#555;font-size:14px;margin-top:2px}
+  .order-card .meta{font-size:13px;color:#777;margin-top:6px}
+  .badge{font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap}
+  .badge.open{background:var(--navy-bg);color:var(--navy)}
+  .badge.done{background:var(--ok-bg);color:var(--ok)}
+  .badge.partial{background:var(--amber-bg);color:var(--amber)}
+
+  /* Pick-Ansicht */
+  .pick-head{
+    background:#fff;border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;margin-bottom:14px;
+  }
+  .pick-head .num{font-weight:700;font-size:18px;color:var(--green)}
+  .pick-head .cust{font-size:14px;color:#555}
+  .progressbar{height:8px;background:var(--line);border-radius:999px;margin-top:10px;overflow:hidden}
+  .progressbar>div{height:100%;background:var(--ok);border-radius:999px;transition:width .3s}
+  .progresstext{font-size:13px;color:#666;margin-top:6px}
+
+  .item{
+    background:#fff;border:1px solid var(--line);border-radius:12px;
+    padding:12px;margin-bottom:12px;display:flex;gap:12px;
+    border-left:5px solid var(--line);
+  }
+  .item.ok{border-left-color:var(--ok);background:var(--ok-bg)}
+  .item.missing{border-left-color:var(--amber);background:var(--amber-bg)}
+  .item.make{border-left-color:var(--navy);background:var(--navy-bg)}
+  .item img,.item .imgph{
+    width:64px;height:64px;border-radius:8px;object-fit:cover;flex-shrink:0;
+    background:var(--line);display:flex;align-items:center;justify-content:center;
+    font-size:11px;color:#888;text-align:center;
+  }
+  .item .body{flex:1;min-width:0}
+  .item .name{font-weight:600;font-size:15px}
+  .item .code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:#666;margin-top:2px}
+  .item .qty{margin-top:8px;font-size:15px}
+  .item .qty b{font-size:18px}
+  .item .status-label{font-size:13px;font-weight:700;margin-top:6px}
+  .item.ok .status-label{color:var(--ok)}
+  .item.missing .status-label{color:var(--amber)}
+  .item.make .status-label{color:var(--navy)}
+  .item .actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .item .actions button{
+    border:1px solid var(--line);background:#fff;border-radius:8px;
+    padding:8px 10px;font-size:13px;font-weight:600;color:var(--ink);
+  }
+  .item .actions button.warn{color:var(--amber);border-color:var(--amber)}
+  .item .actions button.navy{color:var(--navy);border-color:var(--navy)}
+
+  /* Scan-Leiste unten */
+  .scanbar{
+    position:fixed;bottom:0;left:0;right:0;
+    background:#fff;border-top:1px solid var(--line);
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    display:flex;gap:8px;max-width:640px;margin:0 auto;
+  }
+  .scanbar input{
+    flex:1;border:2px solid var(--green-mid);border-radius:10px;
+    padding:12px;font-size:16px;font-family:ui-monospace,Menlo,monospace;
+  }
+  .scanbar button{
+    background:var(--green);color:#fff;border:none;border-radius:10px;
+    padding:12px 16px;font-size:15px;font-weight:700;white-space:nowrap;
+  }
+  .scanbar button.cam{background:var(--navy)}
+
+  /* Kamera-Overlay */
+  #camOverlay{
+    position:fixed;inset:0;background:rgba(20,25,20,.96);z-index:50;
+    display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px;
+  }
+  #camOverlay.show{display:flex}
+  #camReader{width:100%;max-width:420px;border-radius:12px;overflow:hidden}
+  #camOverlay .hint{color:#fff;margin:14px 0;font-size:14px;text-align:center;opacity:.85}
+  #camOverlay button{
+    background:#fff;color:var(--ink);border:none;border-radius:10px;
+    padding:12px 22px;font-size:15px;font-weight:700;
+  }
+
+  /* Toast */
+  #toast{
+    position:fixed;top:70px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;
+    font-size:15px;font-weight:600;z-index:60;display:none;max-width:90%;
+    text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.3);
+  }
+  #toast.err{background:var(--red)}
+  #toast.ok{background:var(--ok)}
+
+  .bigbtn{
+    display:block;width:100%;border:none;border-radius:12px;
+    padding:16px;font-size:17px;font-weight:700;margin-top:16px;
+  }
+  .bigbtn.primary{background:var(--green);color:#fff}
+  .bigbtn.primary:disabled{background:#9FB0A6;color:#E7ECE8}
+  .bigbtn.ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
+
+  /* Bestätigung */
+  .confirm-sheet{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px}
+  .confirm-sheet h3{font-size:18px;color:var(--green);margin-bottom:2px}
+  .confirm-sheet .meta{font-size:13px;color:#666;margin-bottom:14px}
+  .confirm-sheet h4{font-size:13px;text-transform:uppercase;letter-spacing:.06em;margin:16px 0 6px}
+  .confirm-sheet h4.ok{color:var(--ok)} .confirm-sheet h4.miss{color:var(--amber)} .confirm-sheet h4.make{color:var(--navy)}
+  .confirm-sheet ul{list-style:none}
+  .confirm-sheet li{padding:7px 0;border-bottom:1px dashed var(--line);font-size:15px;display:flex;justify-content:space-between;gap:10px}
+  .confirm-sheet li .c{font-family:ui-monospace,Menlo,monospace;font-size:13px;color:#666}
+  .statusline{margin-top:16px;padding:12px;border-radius:10px;font-weight:700;text-align:center;font-size:16px}
+  .statusline.full{background:var(--ok-bg);color:var(--ok)}
+  .statusline.part{background:var(--amber-bg);color:var(--amber)}
+  .picker-input{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:16px;margin-top:8px}
+
+  @media print{
+    body{background:#fff}
+    header,.tartan,.scanbar,.no-print{display:none !important}
+    main{padding:0;max-width:none}
+    .confirm-sheet{border:none;padding:0}
+  }
+</style>
+</head>
+<body>
+<div class="tartan"></div>
+<header>
+  <div>
+    <h1>Kilts &amp; More · Kommissionierung</h1>
+    <div class="sub">Prototyp · Phase 1 (Demodaten)</div>
+  </div>
+  <button onclick="goHome()" class="no-print">Aufträge</button>
+</header>
+
+<main id="app"></main>
+
+<div class="scanbar no-print" id="scanbar" style="display:none">
+  <input id="scanInput" type="text" placeholder="Artikelnr. scannen / eingeben" autocomplete="off">
+  <button onclick="manualScan()">OK</button>
+  <button class="cam" onclick="openCam()">📷 Kamera</button>
+</div>
+
+<div id="camOverlay">
+  <div id="camReader"></div>
+  <div class="hint">Barcode auf dem Regal-Etikett in den Rahmen halten.<br>Kamera funktioniert nur über HTTPS.</div>
+  <button onclick="closeCam()">Schließen</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* DEMO-AUFTRÄGE - HIER ANPASSEN */
+const DEMO_ORDERS = [
+  {
+    id: "10234",
+    customer: "Müller, Hamburg",
+    date: "18.07.2026",
+    items: [
+      { code: "KM-1001", name: "Glenfiddich Kilt Pin", qty: 1, img: "" },
+      { code: "KM-2045", name: "Ghillie Brogues Gr. 44", qty: 1, img: "" },
+      { code: "KM-3310", name: "Kilt Hose cream, L", qty: 2, img: "" },
+      { code: "KM-7788", name: "Prince Charlie Jacket 52 (Maßanfertigung)", qty: 1, img: "" }
+    ]
+  },
+  {
+    id: "10235",
+    customer: "Pipe Band Wien",
+    date: "18.07.2026",
+    items: [
+      { code: "KM-5501", name: "Drone Reeds Set (McCallum)", qty: 3, img: "" },
+      { code: "KM-5620", name: "Pipe Chanter Reed medium", qty: 6, img: "" },
+      { code: "KM-6100", name: "Hemp gelb, Rolle", qty: 2, img: "" }
+    ]
+  }
+];
+/* =========================== */
+
+let state = {};
+let currentOrder = null;
+let html5Qr = null;
+
+function initState(order){
+  if(!state[order.id]){
+    state[order.id] = {
+      items: order.items.map(()=>({scanned:0,status:"pending"})),
+      picker:"", finishedAt:null
+    };
+  }
+}
+
+function orderStatus(order){
+  const s = state[order.id];
+  if(!s || !s.finishedAt) return "open";
+  return s.items.every(i=>i.status==="ok") ? "done" : "partial";
+}
+
+function goHome(){ location.hash=""; render(); }
+
+function render(){
+  const hash = location.hash;
+  const m = hash.match(/^#order\/(.+)$/);
+  const c = hash.match(/^#confirm\/(.+)$/);
+  if(m){ renderPick(m[1]); }
+  else if(c){ renderConfirm(c[1]); }
+  else { renderList(); }
+}
+
+function renderList(){
+  currentOrder = null;
+  document.getElementById("scanbar").style.display="none";
+  let html = "<h2>Offene Aufträge</h2>";
+  for(const o of DEMO_ORDERS){
+    initState(o);
+    const st = orderStatus(o);
+    const badge = st==="open" ? '<span class="badge open">Offen</span>'
+                : st==="done" ? '<span class="badge done">Komplett ✓</span>'
+                : '<span class="badge partial">Teilweise</span>';
+    html += `<button class="order-card" onclick="location.hash='#order/${o.id}';render()">
+      <div class="row"><span class="num">Bestellung ${o.id}</span>${badge}</div>
+      <div class="cust">${o.customer}</div>
+      <div class="meta">${o.items.length} Positionen · ${o.date}</div>
+    </button>`;
+  }
+  html += `<p style="font-size:13px;color:#888;margin-top:18px">
+    Später öffnet der QR-Code auf dem Pick-Zettel den Auftrag direkt –
+    diese Liste ist dann nur der Rückweg.</p>`;
+  document.getElementById("app").innerHTML = html;
+}
+
+function renderPick(orderId){
+  const order = DEMO_ORDERS.find(o=>o.id===orderId);
+  if(!order){ goHome(); return; }
+  currentOrder = order;
+  initState(order);
+  const s = state[order.id];
+  document.getElementById("scanbar").style.display="flex";
+
+  const total = order.items.length;
+  const doneCount = s.items.filter(i=>i.status!=="pending").length;
+
+  let html = `<div class="pick-head">
+    <div class="num">Bestellung ${order.id}</div>
+    <div class="cust">${order.customer} · ${order.date}</div>
+    <div class="progressbar"><div style="width:${(doneCount/total)*100}%"></div></div>
+    <div class="progresstext">${doneCount} von ${total} Positionen erledigt</div>
+  </div>`;
+
+  order.items.forEach((it,idx)=>{
+    const st = s.items[idx];
+    const cls = st.status==="ok"?"ok":st.status==="missing"?"missing":st.status==="make"?"make":"";
+    const img = it.img ? `<img src="${it.img}" alt="">` : `<div class="imgph">Bild<br>folgt via API</div>`;
+    let statusLabel="", actions="";
+    if(st.status==="ok"){
+      statusLabel = `<div class="status-label">✓ Vollständig gescannt</div>`;
+      actions = `<button onclick="resetItem(${idx})">Zurücksetzen</button>`;
+    } else if(st.status==="missing"){
+      statusLabel = `<div class="status-label">✗ Nicht auf Lager – bestellen</div>`;
+      actions = `<button onclick="resetItem(${idx})">Zurücksetzen</button>`;
+    } else if(st.status==="make"){
+      statusLabel = `<div class="status-label">⚒ Muss angefertigt werden</div>`;
+      actions = `<button onclick="resetItem(${idx})">Zurücksetzen</button>`;
+    } else {
+      actions = `<button class="warn" onclick="markItem(${idx},'missing')">Nicht auf Lager</button>
+                 <button class="navy" onclick="markItem(${idx},'make')">Anfertigung</button>`;
+      if(st.scanned>0 && st.scanned<it.qty){
+        actions += `<button onclick="fillQty(${idx})">Menge komplett (${it.qty})</button>`;
+      }
+    }
+    html += `<div class="item ${cls}" id="item-${idx}">
+      ${img}
+      <div class="body">
+        <div class="name">${it.name}</div>
+        <div class="code">${it.code}</div>
+        <div class="qty">Gescannt: <b>${st.scanned}</b> / ${it.qty}</div>
+        ${statusLabel}
+        <div class="actions">${actions}</div>
+      </div>
+    </div>`;
+  });
+
+  const allDone = s.items.every(i=>i.status!=="pending");
+  html += `<button class="bigbtn primary" ${allDone?"":"disabled"} onclick="location.hash='#confirm/${order.id}';render()">
+    Kommissionierung abschließen</button>`;
+  if(!allDone){
+    html += `<p style="font-size:13px;color:#888;margin-top:8px;text-align:center">
+      Jede Position muss gescannt oder als „Nicht auf Lager" / „Anfertigung" bestätigt sein.</p>`;
+  }
+  document.getElementById("app").innerHTML = html;
+  document.getElementById("scanInput").focus();
+}
+
+function renderConfirm(orderId){
+  const order = DEMO_ORDERS.find(o=>o.id===orderId);
+  if(!order){ goHome(); return; }
+  const s = state[order.id];
+  document.getElementById("scanbar").style.display="none";
+  if(!s.finishedAt) s.finishedAt = new Date().toLocaleString("de-DE");
+
+  const okItems=[],missItems=[],makeItems=[];
+  order.items.forEach((it,idx)=>{
+    const st=s.items[idx];
+    if(st.status==="ok") okItems.push(it);
+    else if(st.status==="missing") missItems.push(it);
+    else if(st.status==="make") makeItems.push(it);
+  });
+  const complete = missItems.length===0 && makeItems.length===0;
+  const li = it=>`<li><span>${it.name} · ${it.qty} Stk.</span><span class="c">${it.code}</span></li>`;
+
+  let html = `<div class="confirm-sheet">
+    <h3>Pick-Bestätigung · Bestellung ${order.id}</h3>
+    <div class="meta">${order.customer} · abgeschlossen: ${s.finishedAt}
+      ${s.picker?` · Picker: ${s.picker}`:""}</div>`;
+
+  if(okItems.length) html += `<h4 class="ok">✓ Kommissioniert (gescannt)</h4><ul>${okItems.map(li).join("")}</ul>`;
+  if(missItems.length) html += `<h4 class="miss">✗ Nicht auf Lager – bestellen</h4><ul>${missItems.map(li).join("")}</ul>`;
+  if(makeItems.length) html += `<h4 class="make">⚒ Anfertigung erforderlich</h4><ul>${makeItems.map(li).join("")}</ul>`;
+
+  html += complete
+    ? `<div class="statusline full">KOMPLETT – Auftrag vollständig kommissioniert</div>`
+    : `<div class="statusline part">TEILLIEFERUNG – ${missItems.length+makeItems.length} Position(en) fehlen</div>`;
+
+  html += `<div class="no-print">
+      <input class="picker-input" placeholder="Name des Pickers (optional)"
+        value="${s.picker||""}" onchange="state['${order.id}'].picker=this.value;render()">
+    </div>
+  </div>
+  <button class="bigbtn primary no-print" onclick="window.print()">🖨 Bestätigung drucken</button>
+  <button class="bigbtn ghost no-print" onclick="location.hash='#order/${order.id}';render()">Zurück zum Auftrag</button>
+  <button class="bigbtn ghost no-print" onclick="goHome()">Zur Auftragsliste</button>`;
+  document.getElementById("app").innerHTML = html;
+}
+
+function handleScan(code){
+  if(!currentOrder) return;
+  code = code.trim();
+  if(!code) return;
+  const order = currentOrder;
+  const s = state[order.id];
+  const idx = order.items.findIndex((it,i)=>
+    it.code.toLowerCase()===code.toLowerCase() && s.items[i].status==="pending");
+  if(idx===-1){
+    const anyMatch = order.items.some(it=>it.code.toLowerCase()===code.toLowerCase());
+    toast(anyMatch ? "Position bereits erledigt." : "⚠ Falscher Artikel! "+code+" gehört nicht zu diesem Auftrag.", anyMatch?"":"err");
+    if(navigator.vibrate) navigator.vibrate([80,60,80]);
+    return;
+  }
+  s.items[idx].scanned++;
+  if(navigator.vibrate) navigator.vibrate(40);
+  if(s.items[idx].scanned >= order.items[idx].qty){
+    s.items[idx].status="ok";
+    toast("✓ "+order.items[idx].name+" komplett","ok");
+  } else {
+    toast(order.items[idx].name+": "+s.items[idx].scanned+" / "+order.items[idx].qty);
+  }
+  render();
+}
+
+function manualScan(){
+  const inp=document.getElementById("scanInput");
+  handleScan(inp.value);
+  inp.value="";
+  inp.focus();
+}
+document.addEventListener("keydown",e=>{
+  if(e.key==="Enter" && document.activeElement?.id==="scanInput"){ manualScan(); }
+});
+
+function markItem(idx,status){
+  state[currentOrder.id].items[idx].status=status;
+  render();
+}
+function resetItem(idx){
+  const st=state[currentOrder.id].items[idx];
+  st.status="pending"; st.scanned=0;
+  render();
+}
+function fillQty(idx){
+  const it=currentOrder.items[idx];
+  const st=state[currentOrder.id].items[idx];
+  st.scanned=it.qty; st.status="ok";
+  toast("✓ "+it.name+" komplett (Menge bestätigt)","ok");
+  render();
+}
+
+function openCam(){
+  document.getElementById("camOverlay").classList.add("show");
+  html5Qr = new Html5Qrcode("camReader");
+  html5Qr.start(
+    {facingMode:"environment"},
+    {fps:10, qrbox:{width:260,height:160}},
+    (decoded)=>{ closeCam(); handleScan(decoded); },
+    ()=>{}
+  ).catch(err=>{
+    closeCam();
+    toast("Kamera nicht verfügbar. Hinweis: Kamera-Zugriff im Browser erfordert HTTPS.","err");
+  });
+}
+function closeCam(){
+  document.getElementById("camOverlay").classList.remove("show");
+  if(html5Qr){ html5Qr.stop().catch(()=>{}); html5Qr=null; }
+}
+
+let toastTimer=null;
+function toast(msg,type){
+  const t=document.getElementById("toast");
+  t.textContent=msg;
+  t.className=type||"";
+  t.style.display="block";
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{t.style.display="none"},2600);
+}
+
+window.addEventListener("hashchange",render);
+render();
+</script>
+</body>
+</html>
